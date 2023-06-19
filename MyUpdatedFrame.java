@@ -93,31 +93,6 @@ public class MyUpdatedFrame extends JFrame implements ActionListener {
             }
         }
 
-
-        values[0][0].setText("7");
-        values[0][5].setText("2");
-        values[0][7].setText("1");
-        values[1][1].setText("1");
-        values[1][2].setText("5");
-        values[1][3].setText("6");
-        values[1][6].setText("9");
-        values[2][0].setText("3");
-        values[2][4].setText("5");
-        values[3][0].setText("1");
-        values[4][1].setText("2");
-        values[4][2].setText("4");
-        values[4][4].setText("7");
-        values[4][7].setText("9");
-        values[5][5].setText("8");
-        values[5][6].setText("6");
-        values[6][1].setText("5");
-        values[6][2].setText("9");
-        values[6][4].setText("4");
-        values[6][7].setText("2");
-        values[7][2].setText("3");
-        values[8][3].setText("7");
-        values[8][8].setText("4");
-
         this.add(table);
     }
 
