@@ -1,18 +1,15 @@
 package com.company;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import java.util.*;
 
 public class Solver {
     int[][] grid; // Sudoku board
     int size; // # of rows and columns
     int root; // length of sub-square
-    ArrayList<Integer>[][] possibilities;   //every possible digit for each box (will be the main object modified throughout the code)
-    List<List<Integer>> changes = new ArrayList<>(); // holds the indices of boxes which have been updated and must be rechecked
-    long count = 0; //total number of valid solutions
-    List<int[][]> answers = new ArrayList<>();
+    ArrayList<Integer>[][] possibilities; // every possible digit for each box (will be the main object modified throughout the code)
+    Deque<Cell> changes = new ArrayDeque<>(); // holds the indices of boxes which have been updated and must be rechecked
+    long count = 0; // total number of valid solutions
+    List<int[][]> answers = new ArrayList<>(); // All valid solution grids
 
     @SuppressWarnings("Cast")
 
@@ -28,123 +25,34 @@ public class Solver {
             start.add(i);
         }
 
-        // States that any number is a possibility for any box
-        for (Object[] row : possibilities) {
-            for (int j = 0; j < size; j++) {
-                row[j] = new ArrayList<>(start);
-            }
-        }
-
-        // Changes the possible options for any box to the one given, if any
+        // Assigns each cell the values it can take on (the user-inputted number, or 1-size if unknown)
         for (int row = 0; row < size; row++) {
             for (int col = 0; col < size; col++) {
                 if (grid[row][col] != 0) {
                     possibilities[row][col] = new ArrayList<>(List.of(grid[row][col]));
-                    changes.add(new ArrayList<>(Arrays.asList(row, col)));
+                    changes.addLast(new Cell(row, col));
+                } else {
+                    possibilities[row][col] = new ArrayList<>(start);
                 }
             }
         }
     }
 
-    public void solve () {
+    public void solve() {
 
-        while (changes.size() != 0) {
-            List<Integer> box = changes.remove(0);
-            if (possibilities[box.get(0)][box.get(1)].size() == 1) {
-                removeSingles(box.get(0), box.get(1), grid, possibilities);
-            } else if (possibilities[box.get(0)][box.get(1)].size() == 2) {
-                nakedDoublesRC(box.get(0), box.get(1), possibilities);
-                nakedDoubleBox(box.get(0), box.get(1), possibilities);
+        while (!changes.isEmpty()) {
+
+            Cell box = changes.pollFirst();  // Front element of the changes stack
+
+            if (possibilities[box.row][box.col].size() == 1) {
+                removeSingles(box.row, box.col, grid, possibilities);
+            } else if (possibilities[box.row][box.col].size() == 2) {
+                nakedDoublesRC(box.row, box.col, possibilities);
+                nakedDoubleBox(box.row, box.col, possibilities);
             }
         }
 
         finalResort(grid, possibilities, 0);
-    }
-
-    public boolean isValid() {
-        /*
-        The isValid method is used to identify if the sudoku given is ever invalid.
-        The sudoku is considered invalid if any number is repeated in a row,
-        column, or sub-square.
-
-        @param sudoku This is the sudoku containing the finalized digits
-        @return boolean Returns false if the sudoku is invalid and true otherwise
-         */
-
-        // Assures that all inputted numbers are valid for this sized sudoku
-        for (int[] row : grid) {
-            for (int value : row) {
-                if (value < 0 || value > size) {
-                    return false;
-                }
-            }
-        }
-
-        // Digit frequency counter
-        int [] values = new int [size + 1];
-
-        // Checks frequency of each number for each row
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                //increments the digit in the values array
-                values[grid[i][j]]++;
-
-                //returns false whenever a digit aside from '0' appears multiple times
-                if (values[grid[i][j]] > 1 && grid[i][j] != 0) {
-                    return false;
-                }
-            }
-            //resets array
-            Arrays.fill(values, 0);
-        }
-
-        // Checks frequency of each number for each column
-        for (int i = 0; i < grid.length; i++) {
-            for (int[] ints : grid) {
-                values[ints[i]]++;
-                if (values[ints[i]] > 1 && ints[i] != 0) {
-                    return false;
-                }
-            }
-            Arrays.fill(values, 0);
-        }
-
-        // Checks frequency of each number for each sub-square
-        for (int i = 0; i < root; i++) {
-            for (int j = 0; j < root; j++) {
-                for (int k = i * root; k < (i + 1) * root; k++) {
-                    for (int l = j * root; l < (j + 1) * root; l++) {
-                        values[grid[k][l]]++;
-                        if (values[grid[k][l]] > 1 && grid[k][l] != 0) {
-                            return false;
-                        }
-                    }
-                }
-                Arrays.fill(values, 0);
-            }
-        }
-
-        // Returns true if sudoku is valid
-        return true;
-    }
-
-    public boolean isUnfinished(int [][] sudoku) {
-        /*
-        This method checks to see if the sudoku is completed by searching for a '0' in the array,
-        indicating an unknown value
-
-        @param sudoku This is the sudoku containing the finalized digits
-        @return boolean Returns true if the sudoku is unfinished
-         */
-
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                if (sudoku[i][j] == 0) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     public void RemoveAndUpdate(int row, int col, int value, List<Integer>[][] possibilities) {
@@ -152,9 +60,9 @@ public class Solver {
         possibilities[row][col].remove((Integer) value);
 
         //any box which has value removed as a possibility is added to the changes list
-        List<Integer> item = new ArrayList<>(Arrays.asList(row, col));
+        Cell item = new Cell(row, col);
         if (!changes.contains(item)) {
-            changes.add(item);
+            changes.addLast(item);
         }
     }
 
@@ -163,8 +71,9 @@ public class Solver {
         The removeColumn method removes a certain value as a possibility from an entire column
 
         @param column This is the column number from which a digit should be removed as a possible option
-        @param value This is the digit which should be removed as a possibility
+        @param value This is the digit which should be removed as a possibility.
         @param possibilities This is the list of lists containing all the possible digits for each box
+        @param exceptions The list of positions to not remove digits from (usually the source box)
          */
 
         //loop travels from one row to another within the same column
@@ -240,7 +149,7 @@ public class Solver {
         This method compares the possibilities of the box of the given index with those in the same row and column.
         In short, a naked double is when two boxes in the same row, column, or sub-square
         have exactly 2 possible digits - both of which are the same for both boxes. When this occurs,
-        no other box in the row, column, or sub-square may contain those 2 digits. For example,
+        no other box in the grouping may contain those 2 digits. For example,
         if two boxes in the same row both have possible solutions of 4 and 7, then no other box in the row
         may contain 4 or 7. Therefore, we can remove them as possibilities for the rest of the row.
 
@@ -274,7 +183,7 @@ public class Solver {
     public void nakedDoubleBox (int row, int col, List<Integer>[][] possibilities) {
         /*
         This method works very similarly to the previous one. However, this method addresses naked doubles
-        within a sub-square as opposed to rows or columns.
+        within a sub-square instead.
          */
 
         //loop works similarly to those in the other naked doubles function, but for sub-squares
@@ -298,7 +207,7 @@ public class Solver {
         combination of possible digits for each box. If the resultant Sudoku is valid, the program will
         print it. However, recursion and backtracking are incredibly inefficient codes and can seriously increase
         run time for Sudokus with multiple solutions. Therefore, in order to combat this problem, the method simply
-        guesses a single digit. Afterwards, it functions exactly like earlier - it uses the aforementioned techniques
+        guesses a single digit. Afterward, it functions exactly like earlier - it uses the aforementioned techniques
         to obtain more information. When the code can no longer identify more digits, it reverts to the brute
         force method and guesses another digit. This cycle continues until the sudoku is completed.
 
@@ -318,7 +227,11 @@ public class Solver {
             int [][] sudoku_copy = new int[size][size];
             List<Integer>[][] available_copy = (List<Integer>[][]) new ArrayList[size][size];
 
-            if (sudoku[row][col] == 0  && available[row][col].size() > 0) {
+            // Proceed to the next box if already filled
+            if (sudoku[row][col] != 0) {
+                finalResort(sudoku, available, current + 1);
+
+            } else if (!available[row][col].isEmpty()) {
 
                 // Run the brute force method for each possibility
                 for (Integer digit : available[row][col]) {
@@ -334,56 +247,42 @@ public class Solver {
                     // Select the desired digit and make appropriate changes
                     available_copy[row][col] = new ArrayList<>(List.of(digit));
                     sudoku_copy[row][col] = digit;
-                    changes.add(new ArrayList<>(Arrays.asList(row, col)));
+                    changes.addLast(new Cell(row, col));
 
                     // Convert back to proper solving strategies
-                    while (changes.size() != 0) {
-                        List<Integer> item = changes.remove(0);
-                        if (available_copy[item.get(0)][item.get(1)].size() == 1) {
-                            removeSingles(item.get(0), item.get(1), sudoku_copy, available_copy);
-                        } else if (available_copy[row][col].size() == 2) {
-                            nakedDoublesRC(row, col, available_copy);
-                            nakedDoubleBox(row, col, available_copy);
+                    while (!changes.isEmpty()) {
+                        Cell item = changes.pollFirst();
+
+                        int innerRow = item.row;
+                        int innerCol = item.col;
+
+                        if (available_copy[innerRow][innerCol].size() == 1) {
+                            removeSingles(innerRow, innerCol, sudoku_copy, available_copy);
+                        } else if (available_copy[innerRow][innerCol].size() == 2) {
+                            nakedDoublesRC(innerRow, innerCol, available_copy);
+                            nakedDoubleBox(innerRow, innerCol, available_copy);
                         }
                     }
 
                     // Trigger brute force method once again
                     finalResort(sudoku_copy, available_copy, current + 1);
                 }
-
-            } else {
-                finalResort(sudoku, available, current + 1);
             }
 
+            // Validate a filled sudoku and save it
         } else {
-            if (!isUnfinished(sudoku)) {
+
+            if (GameFrame.isValid(size, sudoku)) {
+
                 count++;
 
                 int[][] copy = new int[size][size];
 
                 for (int row = 0; row < size; row++) {
-                    for (int col = 0; col < size; col++) {
-                        copy[row][col] = sudoku[row][col];
-                    }
+                    System.arraycopy(sudoku[row], 0, copy[row], 0, size);
                 }
                 answers.add(copy);
             }
-        }
-    }
-
-    public void printSudoku(int [][] sudoku) {
-        /*
-        This method prints out a fully completed sudoku with appropriate spacing to make
-        reading the final solution clean and straightforward.
-
-        @param sudoku: a correct solution
-         */
-
-        for (int[] ints : sudoku) {
-            for (int j = 0; j < sudoku[0].length; j++) {
-                System.out.print(ints[j] + " ");
-            }
-            System.out.println();
         }
     }
 }
